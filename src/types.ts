@@ -10,6 +10,9 @@ export interface Room {
   wallThickness: number;
   floorColor: string;
   wallColor: string;
+  floorType?: 'planks' | 'parquet' | 'tiles' | 'concrete' | 'carpet';
+  /** Skirting board height in mm (0 = none). */
+  skirting?: number;
 }
 
 export interface Item {

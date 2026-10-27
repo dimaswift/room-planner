@@ -1,4 +1,4 @@
-import { Kit, rng } from './kit';
+import { Kit, finishParam, rng } from './kit';
 import type { FurnitureDef, Params } from './types';
 
 export const rug: FurnitureDef = {
@@ -11,20 +11,28 @@ export const rug: FurnitureDef = {
     { key: 'width', label: 'Width', type: 'number', unit: 'mm', min: 300, max: 6000, step: 10, group: 'Size' },
     { key: 'length', label: 'Length', type: 'number', unit: 'mm', min: 300, max: 8000, step: 10, group: 'Size' },
     { key: 'thickness', label: 'Pile height', type: 'number', unit: 'mm', min: 2, max: 50, step: 1, group: 'Size' },
-    { key: 'pattern', label: 'Pattern', type: 'select', options: [['plain', 'Plain'], ['border', 'Border'], ['stripes', 'Stripes']], group: 'Look' },
+    { key: 'pattern', label: 'Pattern', type: 'select', options: [['plain', 'Plain'], ['border', 'Border'], ['stripes', 'Stripes'], ['kilim', 'Kilim stripes'], ['persian', 'Persian'], ['jute', 'Jute weave']], group: 'Look' },
     { key: 'color', label: 'Base', type: 'color', group: 'Colours' },
     { key: 'color2', label: 'Pattern', type: 'color', group: 'Colours', show: (p) => p.pattern !== 'plain' },
   ],
-  defaults: { shape: 'rect', width: 2000, length: 3000, thickness: 12, pattern: 'border', color: '#c9b9a3', color2: '#7f6a55' },
+  defaults: { shape: 'rect', width: 2000, length: 3000, thickness: 12, pattern: 'border', color: '#c9b9a3', color2: '#7f6a55', finish: 'rug', finish2: 'rug' },
   presets: [
     { name: 'Rug 200×300', params: {} },
     { name: 'Rug 160×230', params: { width: 1600, length: 2300, pattern: 'stripes', color: '#d7d3cb', color2: '#6f7f8f' } },
     { name: 'Round rug', params: { shape: 'round', width: 2000, length: 2000, pattern: 'border', color: '#b8c2b1', color2: '#5f6f5a' } },
+    { name: 'Kilim stripes', params: { width: 2000, length: 3000, pattern: 'kilim', color: '#efe6d2', color2: '#b8432f' } },
+    { name: 'Persian rug', params: { width: 1700, length: 2400, pattern: 'persian', color: '#8c2b25', color2: '#1f3557' } },
+    { name: 'Jute rug', params: { width: 1600, length: 2300, pattern: 'jute', color: '#c4a676' } },
   ],
   build(p) {
     const k = new Kit();
     const W = p.width, Lg = p.length, t = p.thickness;
-    if (p.shape === 'round') {
+    const textured = p.pattern === 'kilim' || p.pattern === 'persian' || p.pattern === 'jute';
+    if (textured) {
+      const mat = `tex:${p.pattern}|${p.color}|${p.color2}`;
+      if (p.shape === 'round') k.cylY(0, 0, 0, W / 2, t, mat, { rz: Lg / 2, seg: 64 });
+      else k.box(-W / 2, 0, -Lg / 2, W / 2, t, Lg / 2, mat, { edges: false });
+    } else if (p.shape === 'round') {
       k.cylY(0, 0, 0, W / 2, t, 'body', { rz: Lg / 2, seg: 64 });
       if (p.pattern === 'border') {
         k.cylY(0, t, 0, W / 2 - 60, 1, 'accent', { rz: Lg / 2 - 60, seg: 64 });
@@ -60,6 +68,7 @@ const lampBuild = (p: Params) => {
   k.cylY(0, 25, 0, Math.max(8, H / 140), H - sh * 0.6 - 25, 'metal');
   k.cylY(0, H - sh, 0, sd / 2, sh, 'shade', { r2: top / 2, seg: 32 });
   k.sphere(0, H - sh * 0.55, 0, Math.min(45, sd / 6), 'bulb');
+  if (p.light !== false) k.light(0, H - sh * 0.5, 0, H > 1000 ? 6 : 3.5);
   const R = Math.max(sd, bd) / 2;
   k.col(-bd / 2, 0, -bd / 2, bd / 2, 25, bd / 2);
   k.col(-20, 0, -20, 20, H, 20);
@@ -74,8 +83,10 @@ const lampParams = [
   { key: 'shadeDiameter', label: 'Shade diameter', type: 'number', unit: 'mm', min: 100, max: 900, step: 10, group: 'Shade' },
   { key: 'shadeHeight', label: 'Shade height', type: 'number', unit: 'mm', min: 60, max: 600, step: 10, group: 'Shade' },
   { key: 'baseDiameter', label: 'Base diameter', type: 'number', unit: 'mm', min: 80, max: 600, step: 10, group: 'Size' },
+  { key: 'light', label: 'Light on', type: 'bool', group: 'Shade' },
   { key: 'color', label: 'Shade', type: 'color', group: 'Colours' },
   { key: 'color2', label: 'Base', type: 'color', group: 'Colours' },
+  finishParam('finish2', 'Base finish'),
 ] as FurnitureDef['params'];
 
 export const floorLamp: FurnitureDef = {
@@ -84,7 +95,7 @@ export const floorLamp: FurnitureDef = {
   category: 'Decor',
   mount: 'floor',
   params: lampParams,
-  defaults: { height: 1650, shade: 'drum', shadeDiameter: 450, shadeHeight: 320, baseDiameter: 320, color: '#f1e8d6', color2: '#2d2d2d' },
+  defaults: { height: 1650, shade: 'drum', shadeDiameter: 450, shadeHeight: 320, baseDiameter: 320, color: '#f1e8d6', color2: '#2d2d2d', finish2: 'metal', light: true },
   presets: [{ name: 'Floor lamp', params: {} }],
   build: lampBuild,
 };
@@ -95,7 +106,7 @@ export const tableLamp: FurnitureDef = {
   category: 'Decor',
   mount: 'surface',
   params: lampParams,
-  defaults: { height: 480, shade: 'cone', shadeDiameter: 300, shadeHeight: 200, baseDiameter: 150, color: '#f1e8d6', color2: '#b88a5a' },
+  defaults: { height: 480, shade: 'cone', shadeDiameter: 300, shadeHeight: 200, baseDiameter: 150, color: '#f1e8d6', color2: '#b88a5a', finish2: 'gloss', light: true },
   presets: [{ name: 'Table lamp', params: {} }],
   build: lampBuild,
 };
@@ -113,8 +124,9 @@ export const plant: FurnitureDef = {
     { key: 'potHeight', label: 'Pot height', type: 'number', unit: 'mm', min: 60, max: 800, step: 10, group: 'Pot' },
     { key: 'color', label: 'Foliage', type: 'color', group: 'Colours' },
     { key: 'color2', label: 'Pot', type: 'color', group: 'Colours' },
+    finishParam('finish2', 'Pot finish'),
   ],
-  defaults: { style: 'tree', height: 1500, spread: 700, potDiameter: 380, potHeight: 380, color: '#4f8a3f', color2: '#c9c3b8' },
+  defaults: { style: 'tree', height: 1500, spread: 700, potDiameter: 380, potHeight: 380, color: '#4f8a3f', color2: '#c9c3b8', finish: 'matte', finish2: 'gloss' },
   presets: [
     { name: 'Floor plant', params: {} },
     { name: 'Small plant', params: { style: 'bush', height: 350, spread: 280, potDiameter: 150, potHeight: 130, color2: '#c26d47' } },
@@ -224,8 +236,9 @@ export const appliance: FurnitureDef = {
     { key: 'depth', label: 'Depth', type: 'number', unit: 'mm', min: 50, max: 2000, step: 10, group: 'Size' },
     { key: 'height', label: 'Height', type: 'number', unit: 'mm', min: 50, max: 3000, step: 10, group: 'Size' },
     { key: 'color', label: 'Body', type: 'color', group: 'Colours' },
+    finishParam('finish', 'Finish'),
   ],
-  defaults: { kind: 'fridge', width: 600, depth: 650, height: 1850, color: '#e9eaec' },
+  defaults: { kind: 'fridge', width: 600, depth: 650, height: 1850, color: '#e9eaec', finish: 'gloss' },
   presets: [
     { name: 'Fridge', params: {} },
     { name: 'Washing machine', params: { kind: 'washer', width: 600, depth: 600, height: 850, color: '#f4f4f4' } },

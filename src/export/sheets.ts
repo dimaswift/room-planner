@@ -275,8 +275,17 @@ function paramRows(item: Item): [string, string, string?][] {
       });
       continue;
     }
+    if (pd.type === 'shelves') {
+      const list: { space: number; content: string; fill: number }[] = v ?? [];
+      list.forEach((row, i) => {
+        const name = i === 0 ? 'Bottom board' : i === list.length - 1 ? 'Top board' : `Board ${i + 1}`;
+        rows.push([name, `${Math.round(row.space)} mm above · ${row.content}${row.content === 'empty' ? '' : ` ${Math.round(row.fill)}%`}`]);
+      });
+      continue;
+    }
     let s = '';
-    if (pd.type === 'bool') s = v ? 'yes' : 'no';
+    if (pd.type === 'seed') s = `#${v}`;
+    else if (pd.type === 'bool') s = v ? 'yes' : 'no';
     else if (pd.type === 'select') s = pd.options?.find(([k]) => k === v)?.[1] ?? String(v);
     else if (pd.type === 'color') s = String(v).toUpperCase();
     else s = `${Math.round(+v * 10) / 10}${pd.unit && pd.unit !== 'mm' ? pd.unit : pd.unit === 'mm' ? ' mm' : ''}`;

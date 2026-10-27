@@ -1,4 +1,4 @@
-import { Kit, clampN } from './kit';
+import { Kit, clampN, finishParam } from './kit';
 import type { FurnitureDef } from './types';
 
 export const bed: FurnitureDef = {
@@ -22,12 +22,13 @@ export const bed: FurnitureDef = {
     { key: 'pillows', label: 'Pillows', type: 'int', min: 0, max: 4, group: 'Bedding' },
     { key: 'duvet', label: 'Duvet', type: 'bool', group: 'Bedding' },
     { key: 'color', label: 'Frame', type: 'color', group: 'Colours' },
+    finishParam('finish', 'Frame finish'),
     { key: 'color2', label: 'Bedding', type: 'color', group: 'Colours' },
   ],
   defaults: {
     mattressWidth: 1600, mattressLength: 2000, mattressHeight: 220, frameHeight: 320, frameThickness: 40, legHeight: 80,
     headboard: 'upholstered', headboardHeight: 1050, headboardThickness: 90, footboard: false, footboardHeight: 450,
-    pillows: 2, duvet: true, color: '#b49a7d', color2: '#e8e1d4',
+    pillows: 2, duvet: true, color: '#b49a7d', color2: '#e8e1d4', finish: 'wood', finish2: 'fabric',
   },
   presets: [
     { name: 'Double 160×200', params: {} },
@@ -74,7 +75,7 @@ export const bed: FurnitureDef = {
     if (hb) {
       if (p.headboard === 'upholstered') {
         k.box(-W / 2, 0, zb, W / 2, hbH - 10, zb + hbT * 0.45, 'body');
-        k.box(-W / 2 + 15, fH - 40, zb + hbT * 0.45 - 5, W / 2 - 15, hbH, zm0, 'body', { r: 35 });
+        k.box(-W / 2 + 15, fH - 40, zb + hbT * 0.45 - 5, W / 2 - 15, hbH, zm0, `fabric:${p.color}`, { r: 35 });
       } else {
         k.box(-W / 2, 0, zb, W / 2, hbH, zm0, 'body');
       }

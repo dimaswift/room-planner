@@ -1,4 +1,4 @@
-import { Kit, clampN } from './kit';
+import { Kit, clampN, finishParam } from './kit';
 import type { FurnitureDef } from './types';
 
 export const desk: FurnitureDef = {
@@ -19,14 +19,16 @@ export const desk: FurnitureDef = {
     { key: 'drawerCount', label: 'Drawers', type: 'int', min: 1, max: 6, group: 'Drawers', show: (p) => p.drawers !== 'none' },
     { key: 'modesty', label: 'Modesty panel', type: 'bool', group: 'Base' },
     { key: 'color', label: 'Top', type: 'color', group: 'Colours' },
+    finishParam('finish', 'Top finish'),
     { key: 'color2', label: 'Base', type: 'color', group: 'Colours' },
+    finishParam('finish2', 'Base finish'),
   ],
-  defaults: { width: 1400, depth: 700, height: 750, top: 25, legs: 'legs', legSize: 45, drawers: 'none', drawerWidth: 400, drawerCount: 3, modesty: false, color: '#c8a77e', color2: '#2e2e30' },
+  defaults: { width: 1400, depth: 700, height: 750, top: 25, legs: 'legs', legSize: 45, drawers: 'none', drawerWidth: 400, drawerCount: 3, modesty: false, color: '#c8a77e', color2: '#2e2e30', finish: 'wood', finish2: 'metal' },
   presets: [
     { name: 'Desk', params: {} },
-    { name: 'Desk with drawers', params: { width: 1500, legs: 'panel', drawers: 'right', color: '#f0eee9', color2: '#f0eee9', modesty: true } },
+    { name: 'Desk with drawers', params: { width: 1500, legs: 'panel', drawers: 'right', color: '#f0eee9', color2: '#f0eee9', finish: 'matte', finish2: 'matte', modesty: true } },
     { name: 'Standing desk', params: { width: 1600, depth: 800, height: 1100, legs: 'frame', color: '#d9c3a5', color2: '#d8d8d8' } },
-    { name: 'Vanity table', params: { width: 1000, depth: 450, height: 760, drawers: 'both', drawerWidth: 300, drawerCount: 2, legSize: 35, color: '#efe9df', color2: '#efe9df' } },
+    { name: 'Vanity table', params: { width: 1000, depth: 450, height: 760, drawers: 'both', drawerWidth: 300, drawerCount: 2, legSize: 35, color: '#efe9df', color2: '#efe9df', finish: 'matte', finish2: 'matte' } },
   ],
   build(p) {
     const k = new Kit();
@@ -105,14 +107,16 @@ export const table: FurnitureDef = {
     { key: 'apron', label: 'Apron', type: 'bool', group: 'Base', show: (p) => p.legs === 'corner' && p.shape === 'rect' },
     { key: 'shelf', label: 'Lower shelf', type: 'bool', group: 'Base', show: (p) => p.legs === 'corner' && p.shape === 'rect' },
     { key: 'color', label: 'Top', type: 'color', group: 'Colours' },
+    finishParam('finish', 'Top finish'),
     { key: 'color2', label: 'Base', type: 'color', group: 'Colours' },
+    finishParam('finish2', 'Base finish'),
   ],
-  defaults: { shape: 'rect', width: 1600, depth: 900, height: 750, top: 30, legs: 'corner', legSize: 60, legInset: 50, apron: true, shelf: false, color: '#a87c55', color2: '#a87c55' },
+  defaults: { shape: 'rect', width: 1600, depth: 900, height: 750, top: 30, legs: 'corner', legSize: 60, legInset: 50, apron: true, shelf: false, color: '#a87c55', color2: '#a87c55', finish: 'wood', finish2: 'wood' },
   presets: [
     { name: 'Dining table', params: {} },
-    { name: 'Round dining table', params: { shape: 'round', width: 1100, depth: 1100, legs: 'pedestal', color: '#e8e3da', color2: '#2f2f2f' } },
+    { name: 'Round dining table', params: { shape: 'round', width: 1100, depth: 1100, legs: 'pedestal', color: '#e8e3da', color2: '#2f2f2f', finish: 'gloss', finish2: 'metal' } },
     { name: 'Coffee table', params: { width: 1100, depth: 600, height: 420, top: 25, legSize: 40, legInset: 30, apron: false, shelf: true, color: '#c29a6b', color2: '#c29a6b' } },
-    { name: 'Side table', params: { shape: 'round', width: 450, depth: 450, height: 550, top: 20, legs: 'corner', legSize: 25, legInset: 40, color: '#e2ddd4', color2: '#2b2b2b' } },
+    { name: 'Side table', params: { shape: 'round', width: 450, depth: 450, height: 550, top: 20, legs: 'corner', legSize: 25, legInset: 40, color: '#e2ddd4', color2: '#2b2b2b', finish: 'matte', finish2: 'metal' } },
   ],
   build(p) {
     const k = new Kit();
@@ -199,13 +203,15 @@ export const chair: FurnitureDef = {
     { key: 'arms', label: 'Armrests', type: 'bool', group: 'Back', show: (p) => p.style !== 'stool' },
     { key: 'legSize', label: 'Leg size', type: 'number', unit: 'mm', min: 15, max: 80, step: 1, group: 'Frame', show: (p) => p.style !== 'office' },
     { key: 'color', label: 'Frame', type: 'color', group: 'Colours' },
+    finishParam('finish', 'Frame finish'),
     { key: 'color2', label: 'Seat', type: 'color', group: 'Colours' },
+    finishParam('finish2', 'Seat finish'),
   ],
-  defaults: { style: 'dining', seatWidth: 450, seatDepth: 450, seatHeight: 460, seatThickness: 40, height: 880, back: 'slats', arms: false, legSize: 35, color: '#8b6443', color2: '#c9b8a0' },
+  defaults: { style: 'dining', seatWidth: 450, seatDepth: 450, seatHeight: 460, seatThickness: 40, height: 880, back: 'slats', arms: false, legSize: 35, color: '#8b6443', color2: '#c9b8a0', finish: 'wood', finish2: 'fabric' },
   presets: [
     { name: 'Dining chair', params: {} },
-    { name: 'Office chair', params: { style: 'office', seatWidth: 500, seatDepth: 480, seatHeight: 480, seatThickness: 70, height: 1150, arms: true, color: '#2c2c2e', color2: '#3d4650' } },
-    { name: 'Bar stool', params: { style: 'stool', seatWidth: 380, seatDepth: 380, seatHeight: 750, seatThickness: 35, legSize: 30, color: '#2b2b2b', color2: '#a6774e' } },
+    { name: 'Office chair', params: { style: 'office', seatWidth: 500, seatDepth: 480, seatHeight: 480, seatThickness: 70, height: 1150, arms: true, color: '#2c2c2e', color2: '#3d4650', finish: 'matte', finish2: 'fabric' } },
+    { name: 'Bar stool', params: { style: 'stool', seatWidth: 380, seatDepth: 380, seatHeight: 750, seatThickness: 35, legSize: 30, color: '#2b2b2b', color2: '#a6774e', finish: 'metal', finish2: 'wood' } },
   ],
   build(p) {
     const k = new Kit();

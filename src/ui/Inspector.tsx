@@ -6,6 +6,7 @@ import { getWalls, lRoom, rectRoom, roomArea, roomPerimeter, setWallLength } fro
 import { useSelected, useStore } from '../store';
 import type { Item } from '../types';
 import { CellsEditor } from './CellsEditor';
+import { ShelvesEditor } from './ShelvesEditor';
 import { NumberField, Row, Section, TextField } from './fields';
 
 function ParamField({ item, pd, p }: { item: Item; pd: ParamDef; p: Record<string, any> }) {
@@ -47,6 +48,17 @@ function ParamField({ item, pd, p }: { item: Item; pd: ParamDef; p: Record<strin
       );
     case 'cells':
       return <CellsEditor item={item} p={p} />;
+    case 'shelves':
+      return <ShelvesEditor item={item} p={p} />;
+    case 'seed':
+      return (
+        <Row label={pd.label} hint="Re-roll the books and decor">
+          <span className="seed-ctl">
+            <span className="muted">#{v}</span>
+            <button onClick={() => set((+v || 1) + 1)}>Shuffle ↻</button>
+          </span>
+        </Row>
+      );
   }
 }
 
@@ -118,9 +130,9 @@ function ItemPanel({ item }: { item: Item }) {
                 <button title="Rotate +90° (R)" onClick={() => st.rotateBy(item.id, 90)}>⟳</button>
               </span>
             </Row>
-            <Row label="Elevation" hint={m === 'surface' ? 'Set automatically: rests on whatever is below it' : 'Height of the bottom above the floor'}>
-              {m === 'surface' ? (
-                <span className="auto-val">{Math.round(item.elev)} mm <em>auto</em></span>
+            <Row label="Elevation" hint={m === 'surface' ? 'Set automatically: rests on whatever is below it' : m === 'ceiling' ? 'Hangs from the ceiling; change the cord length instead' : 'Height of the bottom above the floor'}>
+              {m === 'surface' || m === 'ceiling' ? (
+                <span className="auto-val">{Math.round(item.elev)} mm <em>{m === 'ceiling' ? 'from ceiling' : 'auto'}</em></span>
               ) : (
                 <NumberField value={item.elev} unit="mm" min={0} step={10} onChange={(v) => st.updateItem(item.id, { elev: v })} />
               )}
@@ -141,6 +153,17 @@ function ItemPanel({ item }: { item: Item }) {
           </Row>
         )}
       </Section>
+
+      {!opening && typeof p.width === 'number' && (item.type === 'cabinet' || item.type === 'wallshelf' || item.type === 'desk' || item.type === 'sofa') && (
+        <Section title="Tools">
+          <div className="btn-row">
+            <button onClick={() => st.fillWidth(item.id)} title="Grow to the nearest wall, furniture, door or window on each side">⇔ Stretch to fill</button>
+            {item.type === 'cabinet' && (
+              <button onClick={() => st.fitCeiling(item.id)} title={m === 'wall' ? 'Move up so the top meets the ceiling' : 'Make it as tall as the room'}>⇕ Fit to ceiling</button>
+            )}
+          </div>
+        </Section>
+      )}
 
       {groups.map((g) => (
         <Section key={g.name} title={g.name}>
@@ -179,7 +202,17 @@ function RoomPanel() {
       <Section title="Room">
         <Row label="Ceiling height"><NumberField value={room.wallHeight} unit="mm" min={1800} max={6000} step={10} onChange={(v) => st.setRoom({ wallHeight: v })} /></Row>
         <Row label="Wall thickness"><NumberField value={room.wallThickness} unit="mm" min={50} max={600} step={5} onChange={(v) => st.setRoom({ wallThickness: v })} /></Row>
-        <Row label="Floor"><span className="color-ctl"><input type="color" value={room.floorColor} onChange={(e) => st.setRoom({ floorColor: e.target.value })} /><code>{room.floorColor.toUpperCase()}</code></span></Row>
+        <Row label="Floor">
+          <select value={room.floorType ?? 'planks'} onChange={(e) => st.setRoom({ floorType: e.target.value as any })}>
+            <option value="planks">Wood planks</option>
+            <option value="parquet">Parquet</option>
+            <option value="tiles">Tiles</option>
+            <option value="concrete">Concrete</option>
+            <option value="carpet">Carpet</option>
+          </select>
+        </Row>
+        <Row label="Floor colour"><span className="color-ctl"><input type="color" value={room.floorColor} onChange={(e) => st.setRoom({ floorColor: e.target.value })} /><code>{room.floorColor.toUpperCase()}</code></span></Row>
+        <Row label="Skirting height"><NumberField value={room.skirting ?? 80} unit="mm" min={0} max={300} step={5} onChange={(v) => st.setRoom({ skirting: v })} /></Row>
         <Row label="Walls"><span className="color-ctl"><input type="color" value={room.wallColor} onChange={(e) => st.setRoom({ wallColor: e.target.value })} /><code>{room.wallColor.toUpperCase()}</code></span></Row>
       </Section>
       <Section title="Wall lengths (inner)">

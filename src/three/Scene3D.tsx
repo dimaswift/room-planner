@@ -1,10 +1,14 @@
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, SoftShadows } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
+import { EffectComposer, N8AO, SMAA, ToneMapping } from '@react-three/postprocessing';
+import { ToneMappingMode } from 'postprocessing';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { bboxOf, centroid } from '../geometry/math';
+import { getBuild } from '../furniture/catalog';
+import { bboxOf, centroid, rotPt } from '../geometry/math';
 import { analyze } from '../geometry/placement';
+import { getWalls } from '../geometry/room';
 import { useStore, type CameraPreset, type WallDisplay } from '../store';
 import { ItemNode } from './ItemNode';
 import { Overlay3D } from './Overlay3D';
@@ -16,7 +20,7 @@ function Environment() {
     const pmrem = new THREE.PMREMGenerator(gl);
     const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     scene.environment = env;
-    (scene as any).environmentIntensity = 0.55;
+    (scene as any).environmentIntensity = 0.5;
     return () => {
       env.dispose();
       pmrem.dispose();
@@ -25,32 +29,44 @@ function Environment() {
   return null;
 }
 
+/** Sun shining in through the biggest window (or from the front-left if there is none). */
 function Lights() {
   const room = useStore((s) => s.doc.room);
+  const items = useStore((s) => s.doc.items);
   const light = useRef<THREE.DirectionalLight>(null);
   const bb = bboxOf(room.points);
-  const cx = (bb.minX + bb.maxX) / 2000, cz = (bb.minY + bb.maxY) / 2000;
-  const s = Math.max(bb.w, bb.h) / 1000 / 2 + 1.5;
+  const c = centroid(room.points);
+  const cx = c.x / 1000, cz = c.y / 1000;
+  const s = Math.max(bb.w, bb.h) / 1000 / 2 + 2;
+  const win = items
+    .filter((i) => i.type === 'window' && i.wall !== undefined)
+    .sort((a, b) => getBuild(b, room).size[0] * getBuild(b, room).size[1] - getBuild(a, room).size[0] * getBuild(a, room).size[1])[0];
+  const wall = win ? getWalls(room)[win.wall!] : undefined;
+  // horizontal direction the light travels in, then rotated a bit so patches fall at an angle
+  const dir = rotPt(wall ? wall.n : { x: 0.55, y: -0.83 }, 28);
+  const el = (38 * Math.PI) / 180, D = 14;
+  const pos: [number, number, number] = [cx - dir.x * D * Math.cos(el), D * Math.sin(el), cz - dir.y * D * Math.cos(el)];
   useEffect(() => {
     const l = light.current;
     if (!l) return;
     l.target.position.set(cx, 0, cz);
     l.target.updateMatrixWorld();
     const cam = l.shadow.camera;
-    cam.left = -s; cam.right = s; cam.top = s; cam.bottom = -s; cam.near = 0.5; cam.far = 40;
+    cam.left = -s; cam.right = s; cam.top = s; cam.bottom = -s; cam.near = 1; cam.far = 40;
     cam.updateProjectionMatrix();
-  }, [cx, cz, s]);
+  }, [cx, cz, s, pos[0], pos[2]]);
   return (
     <>
-      <hemisphereLight args={['#ffffff', '#b9b2a6', 0.75]} />
+      <hemisphereLight args={['#fff8ef', '#a89880', 0.7]} />
       <directionalLight
         ref={light}
         castShadow
-        position={[cx - 4, 9, cz + 6]}
-        intensity={1.7}
+        position={pos}
+        color="#fff1dc"
+        intensity={2.4}
         shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.02}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.025}
       />
     </>
   );
@@ -126,13 +142,24 @@ function Items() {
 export function Scene3D() {
   const select = useStore((s) => s.select);
   const wallDisplay = useStore((s) => s.wallDisplay);
+  const quality = useStore((s) => s.quality);
+  const outlines = useStore((s) => s.outlines);
   const set = useStore((s) => s.set);
   const setCamera = useStore((s) => s.setCamera);
+  const high = quality === 'high';
   const gl = useMemo(() => ({ antialias: true, preserveDrawingBuffer: true, toneMapping: THREE.NeutralToneMapping }), []);
   return (
     <div className="viewport3d">
-      <Canvas shadows gl={gl} camera={{ fov: 45, near: 0.05, far: 300, position: [6, 6, 8] }} onPointerMissed={(e) => e.button === 0 && select(null)}>
+      <Canvas
+        key={quality}
+        shadows={{ type: THREE.PCFSoftShadowMap }}
+        dpr={[1, 2]}
+        gl={gl}
+        camera={{ fov: 45, near: 0.05, far: 300, position: [6, 6, 8] }}
+        onPointerMissed={(e) => e.button === 0 && select(null)}
+      >
         <color attach="background" args={['#e8ecf1']} />
+        {high && <SoftShadows size={22} samples={12} focus={0.4} />}
         <Environment />
         <Lights />
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.003, 0]} receiveShadow>
@@ -146,6 +173,13 @@ export function Scene3D() {
         </group>
         <OrbitControls makeDefault zoomToCursor enableDamping dampingFactor={0.12} maxPolarAngle={Math.PI / 2 - 0.03} minDistance={0.3} maxDistance={60} />
         <CameraRig />
+        {high && (
+          <EffectComposer multisampling={0} enableNormalPass={false}>
+            <N8AO aoRadius={0.5} distanceFalloff={0.5} intensity={2.4} quality="medium" halfRes />
+            <SMAA />
+            <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+          </EffectComposer>
+        )}
       </Canvas>
       <div className="vp-toolbar">
         <button onClick={() => setCamera('iso')} title="Overview">Overview</button>
@@ -158,6 +192,13 @@ export function Scene3D() {
             {w === 'cutaway' ? 'Cutaway' : w === 'full' ? 'Full' : 'Low'}
           </button>
         ))}
+        <span className="sep" />
+        <button className={high ? 'on' : ''} onClick={() => set({ quality: high ? 'fast' : 'high' })} title="Realistic lighting: ambient occlusion, soft shadows, lamp light. Turn off on slow machines.">
+          Realistic
+        </button>
+        <button className={outlines ? 'on' : ''} onClick={() => set({ outlines: !outlines })} title="Draw part outlines">
+          Outlines
+        </button>
       </div>
     </div>
   );

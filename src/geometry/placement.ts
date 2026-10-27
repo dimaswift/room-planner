@@ -457,3 +457,43 @@ export function anchorResize(doc: Doc, before: Item, after: Item): Item {
   const s = rotPt(vec(lx, lz), after.rot);
   return { ...after, x: r1(after.x + s.x), y: r1(after.y + s.y) };
 }
+
+/**
+ * Free distance to the left and right of an item: walls and furniture, plus any door or window in
+ * the wall behind it that overlaps its height (so a stretched bookcase never covers an opening).
+ */
+export function freeSpan(doc: Doc, item: Item): { left: number; right: number } {
+  const cl = clearances(doc, item);
+  let left = cl.find((c) => c.side === 'left')?.d ?? Infinity;
+  let right = cl.find((c) => c.side === 'right')?.d ?? Infinity;
+  const room = doc.room;
+  const back = clearances(doc, item, true).find((c) => c.side === 'back');
+  if (!back || back.d > 5) return { left, right };
+  const w = getWalls(room).find((wl) => {
+    const t = dot(sub(back.to, wl.a), wl.dir);
+    return Math.abs(dot(sub(back.to, wl.a), wl.n)) < 1 && t > -1 && t < wl.len + 1;
+  });
+  if (!w) return { left, right };
+  const b = getBuild(item, room);
+  const pose = poseOf(item, room);
+  const { min, max } = b.bounds;
+  const tA = dot(sub(toPlan(pose, min[0], min[2]), w.a), w.dir);
+  const tB = dot(sub(toPlan(pose, max[0], min[2]), w.a), w.dir);
+  const lo = Math.min(tA, tB), hi = Math.max(tA, tB);
+  const y0 = item.elev, y1 = item.elev + b.size[1];
+  let gapLo = Infinity, gapHi = Infinity;
+  for (const o of doc.items) {
+    if (o.wall !== w.i || !DEFS[o.type] || mountOf(o) !== 'opening') continue;
+    const ob = getBuild(o, room);
+    const [c0, c1] = ob.cut ?? [-ob.size[0] / 2, ob.size[0] / 2];
+    const a = (o.offset ?? 0) + c0, e = (o.offset ?? 0) + c1;
+    if (Math.min(y1, o.elev + ob.size[1]) - Math.max(y0, o.elev) <= 0) continue;
+    if (e <= lo + 0.5) gapLo = Math.min(gapLo, lo - e);
+    if (a >= hi - 0.5) gapHi = Math.min(gapHi, a - hi);
+  }
+  // local +x runs along the wall direction when the item's x axis agrees with it
+  const along = dot(rotPt(vec(1, 0), pose.rot), w.dir) > 0;
+  left = Math.min(left, along ? gapLo : gapHi);
+  right = Math.min(right, along ? gapHi : gapLo);
+  return { left, right };
+}

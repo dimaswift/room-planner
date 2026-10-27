@@ -7,6 +7,8 @@ import { NumberField, Row } from './fields';
 const CELL_BG: Record<CellType, string> = {
   open: '#ffffff',
   books: 'repeating-linear-gradient(90deg,#c9705d 0 5px,#5d7fa8 5px 9px,#d9b65a 9px 13px,#6f9a6a 13px 18px,#fff 18px 20px)',
+  mixed: 'linear-gradient(90deg,transparent 0 55%,#fff 55%),repeating-linear-gradient(90deg,#c9705d 0 5px,#5d7fa8 5px 9px,#d9b65a 9px 13px,#fff 13px 15px)',
+  decor: 'radial-gradient(circle at 35% 70%,#6f9a6a 0 7px,transparent 8px),radial-gradient(circle at 70% 72%,#c26d47 0 6px,transparent 7px),#fff',
   door: '#e7dfd2',
   glass: '#d6ecf7',
   drawer: '#efe6d6',
@@ -19,11 +21,12 @@ export function CellsEditor({ item, p }: { item: Item; p: Record<string, any> })
   const [sel, setSel] = useState({ c: 0, r: 0 });
   const [gridC, setGridC] = useState(layout.cols.length);
   const [gridR, setGridR] = useState(Math.max(...layout.cols.map((c) => c.cells.length)));
+  const [rowH, setRowH] = useState(320);
   const geo = cabinetCells(p);
   const nc = layout.cols.length;
   const c = Math.min(sel.c, nc - 1);
   const r = Math.min(sel.r, layout.cols[c].cells.length - 1);
-  const W = p.width, H = p.height, t = p.board;
+  const W = p.width, H = p.height, t = p.board, fr = p.frame ?? p.board;
 
   const commit = (next: CabLayout) => updateParams(item.id, { layout: next });
   const clone = (): CabLayout => structuredClone(layout);
@@ -44,7 +47,7 @@ export function CellsEditor({ item, p }: { item: Item; p: Record<string, any> })
   const colRect = geo.cols[c];
   const m = layout.cols[c].cells.length;
   const availH = geo.yi1 - geo.yi0 - (m - 1) * t;
-  const availW = W - 2 * t - (nc - 1) * t;
+  const availW = W - 2 * fr - (nc - 1) * fr;
 
   const setCellHeight = (mm: number) => {
     const l = clone();
@@ -134,6 +137,17 @@ export function CellsEditor({ item, p }: { item: Item; p: Record<string, any> })
       <div className="btn-row">
         <button onClick={addCol} title="Duplicate the selected column">+ Column</button>
         <button onClick={removeCol} disabled={nc < 2}>− Column</button>
+      </div>
+      <div className="grid-quick">
+        <span>Rows of about</span>
+        <input type="number" min={80} max={1500} step={10} value={rowH} onChange={(e) => setRowH(+e.target.value || 0)} />
+        <span>mm</span>
+        <button title="Re-divide every column into equal rows close to this clear height" onClick={() => {
+          if (rowH < 50) return;
+          const Hi = geo.yi1 - geo.yi0;
+          const rows = Math.max(1, Math.round((Hi + t) / (rowH + t)));
+          commit({ cols: layout.cols.map((col) => ({ w: col.w, cells: Array.from({ length: rows }, (_, i) => ({ h: 1, t: col.cells[i]?.t ?? col.cells.at(-1)!.t })) })) });
+        }}>Apply</button>
       </div>
       <div className="grid-quick">
         <span>Uniform grid</span>

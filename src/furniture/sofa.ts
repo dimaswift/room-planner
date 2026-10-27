@@ -1,4 +1,5 @@
-import { Kit, clampN } from './kit';
+import { darken } from '../colors';
+import { Kit, clampN, finishParam } from './kit';
 import type { FurnitureDef } from './types';
 
 export const sofa: FurnitureDef = {
@@ -14,6 +15,7 @@ export const sofa: FurnitureDef = {
     { key: 'seatHeight', label: 'Seat height', type: 'number', unit: 'mm', min: 250, max: 700, step: 10, group: 'Seat' },
     { key: 'seats', label: 'Seat cushions', type: 'int', min: 1, max: 6, group: 'Seat' },
     { key: 'backThickness', label: 'Back depth', type: 'number', unit: 'mm', min: 100, max: 450, step: 10, group: 'Seat' },
+    { key: 'tufted', label: 'Button tufting', type: 'bool', group: 'Seat' },
     { key: 'arms', label: 'Arms', type: 'select', options: [['square', 'Square'], ['round', 'Rounded'], ['none', 'None']], group: 'Arms' },
     { key: 'armWidth', label: 'Arm width', type: 'number', unit: 'mm', min: 40, max: 400, step: 10, group: 'Arms', show: (p) => p.arms !== 'none' },
     { key: 'armHeight', label: 'Arm height', type: 'number', unit: 'mm', min: 300, max: 1000, step: 10, group: 'Arms', show: (p) => p.arms !== 'none' },
@@ -22,18 +24,28 @@ export const sofa: FurnitureDef = {
     { key: 'base', label: 'Base', type: 'select', options: [['legs', 'Legs'], ['plinth', 'Plinth']], group: 'Base' },
     { key: 'legHeight', label: 'Leg height', type: 'number', unit: 'mm', min: 20, max: 300, step: 5, group: 'Base', show: (p) => p.base === 'legs' },
     { key: 'color', label: 'Upholstery', type: 'color', group: 'Colours' },
+    finishParam('finish', 'Upholstery finish'),
     { key: 'color2', label: 'Legs', type: 'color', group: 'Colours', show: (p) => p.base === 'legs' },
+    finishParam('finish2', 'Legs finish', (p) => p.base === 'legs'),
   ],
   defaults: {
     width: 2200, depth: 950, height: 820, seatHeight: 430, seats: 3, backThickness: 230,
     arms: 'square', armWidth: 160, armHeight: 600, chaise: 'none', chaiseLength: 1650,
-    base: 'legs', legHeight: 120, color: '#7d8a99', color2: '#3b2f2a',
+    base: 'legs', legHeight: 120, color: '#7d8a99', color2: '#3b2f2a', finish: 'fabric', finish2: 'wood', tufted: false,
   },
   presets: [
     { name: '3-seat sofa', params: {} },
     { name: '2-seat sofa', params: { width: 1700, seats: 2 } },
     { name: 'Corner sofa', params: { width: 2700, seats: 3, chaise: 'right', chaiseLength: 1650 } },
     { name: 'Armchair', params: { width: 900, depth: 880, seats: 1, height: 860, color: '#a2785a' } },
+    {
+      name: 'Leather sofa',
+      params: { width: 2300, depth: 980, height: 780, seatHeight: 420, color: '#7a4526', finish: 'leather', tufted: true, arms: 'round', armWidth: 210, armHeight: 640, backThickness: 270, legHeight: 80, color2: '#2a1d16' },
+    },
+    {
+      name: 'Leather armchair',
+      params: { width: 1000, depth: 950, height: 800, seats: 1, color: '#7a4526', finish: 'leather', tufted: true, arms: 'round', armWidth: 200, armHeight: 640, backThickness: 260, legHeight: 80, color2: '#2a1d16' },
+    },
   ],
   build(p) {
     const k = new Kit();
@@ -78,6 +90,20 @@ export const sofa: FurnitureDef = {
       const isCh = hasCh && Math.abs(x0 - chX0) < 1;
       k.box(x0 + 4, baseTop, zb + bt, x1 - 4, sH, isCh ? zc : zf + 10, 'body', { r: 34 });
       k.box(x0 + 6, sH - 10, zb + bf - 5, x1 - 6, H, zb + bt + 15, 'body', { r: 45, rot: [-0.07, 0, 0] });
+      if (p.tufted) {
+        // diamond-pattern buttons pressed into the back cushion
+        const btn = `${p.finish ?? 'fabric'}:${darken(p.color, 0.35)}`;
+        const cy = (sH - 10 + H) / 2;
+        const per = Math.max(2, Math.round((x1 - x0) / 220));
+        for (let row = 0; row < 3; row++) {
+          const y = sH + 80 + row * ((H - sH - 150) / 2);
+          const n = row % 2 ? per - 1 : per;
+          for (let j = 0; j < n; j++) {
+            const x = x0 + ((j + (row % 2 ? 1 : 0.5)) * (x1 - x0)) / per;
+            k.sphere(x, y, zb + bt + 12 - (y - cy) * Math.tan(0.07), 9, btn);
+          }
+        }
+      }
     }
 
     // legs

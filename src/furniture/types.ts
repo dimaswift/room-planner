@@ -1,5 +1,5 @@
 export type V3 = [number, number, number];
-export type Mount = 'floor' | 'surface' | 'wall' | 'rug' | 'opening';
+export type Mount = 'floor' | 'surface' | 'wall' | 'ceiling' | 'rug' | 'opening';
 export type View = 'top' | 'front' | 'side';
 export type Params = Record<string, any>;
 
@@ -87,6 +87,8 @@ export interface BuildResult {
   cut?: [number, number];
   /** Short human description of key sizes for schedules. */
   note?: string;
+  /** Light sources (lamps), item-local mm. */
+  lights?: { pos: V3; color: string; intensity: number }[];
 }
 
 export interface BuildCtx {
@@ -97,7 +99,7 @@ export interface BuildCtx {
 export interface ParamDef {
   key: string;
   label: string;
-  type: 'number' | 'int' | 'select' | 'bool' | 'color' | 'cells';
+  type: 'number' | 'int' | 'select' | 'bool' | 'color' | 'cells' | 'shelves' | 'seed';
   min?: number;
   max?: number;
   step?: number;

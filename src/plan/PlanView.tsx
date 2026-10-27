@@ -21,8 +21,8 @@ type Drag =
 
 const NS = { vectorEffect: 'non-scaling-stroke' as const };
 
-function ShapeEl({ s, fill, stroke, sw = 1, opacity }: { s: Shape2; fill: string; stroke: string; sw?: number; opacity?: number }) {
-  const common = { fill, stroke, strokeWidth: sw, ...NS, opacity };
+function ShapeEl({ s, fill, stroke, sw = 1, opacity, dash }: { s: Shape2; fill: string; stroke: string; sw?: number; opacity?: number; dash?: string }) {
+  const common = { fill, stroke, strokeWidth: sw, ...NS, opacity, strokeDasharray: dash };
   if (s.t === 'rect') {
     const r = Math.min(s.r, s.w / 2, s.h / 2);
     return <rect x={s.x} y={s.y} width={s.w} height={s.h} rx={r || undefined} {...common} />;
@@ -59,6 +59,7 @@ function PlanItem({ item, room, issue, selected, interactive, onDown }: {
         </>
       ) : (
         projectBuild(b, 'top').map((s, i) => {
+          if (mountOf(item) === 'ceiling') return <ShapeEl key={i} s={s} fill="none" stroke="#5b6570" sw={1} dash="5 4" />;
           const f = shapeFill(s.mat, p);
           return <ShapeEl key={i} s={s} fill={f.fill} stroke={f.stroke} sw={0.8} opacity={f.opacity} />;
         })

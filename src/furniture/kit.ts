@@ -1,4 +1,4 @@
-import type { BoxPrim, BuildResult, Collider, CylPrim, DimAnno, PlanSymbol, Prim, V3, View } from './types';
+import type { BoxPrim, BuildResult, Collider, CylPrim, DimAnno, ParamDef, Params, PlanSymbol, Prim, V3, View } from './types';
 
 const order = (a: number, b: number): [number, number] => (a < b ? [a, b] : [b, a]);
 
@@ -9,6 +9,7 @@ export class Kit {
   soft: Collider[] = [];
   dims: DimAnno[] = [];
   symbol: PlanSymbol[] = [];
+  lights: { pos: V3; color: string; intensity: number }[] = [];
 
   /** Box from min/max corners. */
   box(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, mat: string, o: Partial<BoxPrim> = {}) {
@@ -39,6 +40,10 @@ export class Kit {
 
   sphere(cx: number, cy: number, cz: number, r: number, mat: string, scale?: V3) {
     this.prims.push({ kind: 'sphere', pos: [cx, cy, cz], r, mat, scale });
+  }
+
+  light(x: number, y: number, z: number, intensity = 4, color = '#ffd8a8') {
+    this.lights.push({ pos: [x, y, z], color, intensity });
   }
 
   col(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number) {
@@ -75,6 +80,7 @@ export class Kit {
       size,
       dims: this.dims,
       symbol: this.symbol,
+      lights: this.lights,
       ...extra,
       bounds,
     };
@@ -94,3 +100,16 @@ export const clampN = (v: number, lo: number, hi: number) => Math.min(hi, Math.m
 
 export const BOOK_COLORS = ['#8c2f39', '#2f5d8c', '#c9a227', '#3f7d4e', '#5b4a8b', '#d9d2c3', '#b5542f', '#1f3b4d', '#7a8b99', '#a33b5b'];
 export const CLOTH_COLORS = ['#3e4a5c', '#8a9bb0', '#d8d2c4', '#6b4f4f', '#2f2f35', '#a7b59a', '#c47f5e', '#f0ece4'];
+
+export const FINISH_OPTIONS: [string, string][] = [
+  ['wood', 'Wood'],
+  ['matte', 'Matte paint'],
+  ['gloss', 'Gloss lacquer'],
+  ['fabric', 'Fabric'],
+  ['leather', 'Leather'],
+  ['metal', 'Metal'],
+];
+
+export const finishParam = (key: string, label: string, show?: (p: Params) => boolean): ParamDef => ({
+  key, label, type: 'select', options: FINISH_OPTIONS, group: 'Colours', show,
+});

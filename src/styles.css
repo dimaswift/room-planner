@@ -139,7 +139,7 @@ aside.right { width: 312px; flex: none; background: var(--panel); border-left: 1
 .cab-cell:hover { filter: brightness(0.96); }
 .cab-cell.t-door::after, .cab-cell.t-drawer::after { content: ''; position: absolute; width: 4px; height: 14px; background: #888; border-radius: 2px; right: 6px; }
 .cab-cell.t-drawer::after { width: 18px; height: 3px; right: auto; top: 30%; }
-.cell-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 6px; }
+.cell-types { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 6px; }
 .cell-types button { padding: 3px 4px; font-size: 12px; }
 .btn-row { display: flex; gap: 5px; margin: 5px 0; }
 .btn-row button { flex: 1; font-size: 12px; }
@@ -242,3 +242,13 @@ kbd { background: #f1f3f5; border: 1px solid #d5dae0; border-bottom-width: 2px; 
   position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #1d232b; color: #fff; padding: 9px 16px;
   border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); z-index: 60; font-size: 12.5px; max-width: 520px;
 }
+
+.seed-ctl { display: inline-flex; gap: 8px; align-items: center; }
+.shelves-ed { font-size: 12px; }
+.shelf-head, .shelf-row { display: grid; grid-template-columns: 40px 76px 1fr 58px 24px; gap: 4px; align-items: center; }
+.shelf-row .num .unit { padding-right: 4px; }
+.shelf-head { color: var(--muted); font-size: 10.5px; margin-bottom: 3px; }
+.shelf-row { margin-bottom: 4px; }
+.shelf-row .num { width: 100%; }
+.shelf-row select { width: 100%; padding: 3px 2px; }
+.shelf-row .icon { width: 26px; padding: 3px 0; }

@@ -12,7 +12,9 @@ const ERR_MAT = new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true
 
 export const ItemNode = memo(function ItemNode({ item, room, issue }: { item: Item; room: Room; issue?: Issue }) {
   const build = getBuild(item, room);
-  const obj = useMemo(() => buildObject(build, fullParams(item)), [build]);
+  const outlines = useStore((s) => s.outlines);
+  const lampsOn = useStore((s) => s.quality === 'high');
+  const obj = useMemo(() => buildObject(build, fullParams(item), outlines), [build, outlines]);
   useEffect(() => () => disposeObject(obj), [obj]);
   const { camera, gl, controls } = useThree() as any;
   const pose = poseOf(item, room);
@@ -63,6 +65,10 @@ export const ItemNode = memo(function ItemNode({ item, room, issue }: { item: It
       onPointerOut={() => (gl.domElement.style.cursor = '')}
     >
       <primitive object={obj} />
+      {lampsOn &&
+        build.lights?.map((l, i) => (
+          <pointLight key={i} position={l.pos} color={l.color} intensity={l.intensity} distance={7} decay={2} />
+        ))}
       {issue?.level === 'error' &&
         build.colliders.map((c, i) => (
           <mesh

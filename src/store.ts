@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import { DEFS, defaultElev, getBuild, mountOf } from './furniture/catalog';
-import { add, clamp, closestOnSegment, convexOverlap, dot, mul, normDeg, sub, uid, vec } from './geometry/math';
+import { DEFS, defaultElev, elevFor, fullParams, getBuild, mountOf } from './furniture/catalog';
+import { add, clamp, closestOnSegment, convexOverlap, dot, mul, normDeg, rotPt, sub, uid, vec } from './geometry/math';
 import {
-  anchorResize, findFreeSpot, footprint, isValid, makeCtx, planMove, planOpeningMove, supportHeight, syncOpening, worldColliders,
+  anchorResize, findFreeSpot, footprint, freeSpan, isValid, makeCtx, planMove, planOpeningMove, supportHeight, syncOpening, worldColliders,
 } from './geometry/placement';
 import { getWalls, rectRoom } from './geometry/room';
 import type { Doc, Item, Room, Underlay, Vec2 } from './types';
@@ -11,6 +11,7 @@ export type ViewMode = 'plan' | '3d' | 'split';
 export type PlanTool = 'select' | 'walls' | 'draw' | 'calibrate' | 'underlay';
 export type WallDisplay = 'cutaway' | 'full' | 'low';
 export type CameraPreset = 'iso' | 'top' | 'eye';
+export type Quality = 'high' | 'fast';
 
 const DOC_KEY = 'room-planner:doc:v1';
 const UNDERLAY_KEY = 'room-planner:underlay:v1';
@@ -34,22 +35,25 @@ function makeItem(type: string, presetIdx = 0, extra: Partial<Item> = {}): Item 
 }
 
 export function sampleDoc(): Doc {
-  const room: Room = { points: rectRoom(5200, 4000), wallHeight: 2700, wallThickness: 150, floorColor: '#c9a882', wallColor: '#f2efe9' };
+  const room: Room = { points: rectRoom(5200, 4000), wallHeight: 2700, wallThickness: 150, floorColor: '#c9a882', wallColor: '#f2efe9', floorType: 'planks', skirting: 80 };
   const it = (type: string, preset: number, p: Partial<Item>) => makeItem(type, preset, p);
   const items: Item[] = [
     it('window', 1, { wall: 0, offset: 2600, params: { ...DEFS.window.defaults, ...DEFS.window.presets[1].params, width: 1800 } }),
     it('door', 0, { wall: 2, offset: 4350, params: { ...DEFS.door.defaults, hinge: 'right' } }),
-    it('rug', 0, { x: 1750, y: 2000, rot: 90 }),
-    it('sofa', 0, { x: 475, y: 2000, rot: 270 }),
-    it('table', 2, { x: 1700, y: 2000, rot: 90 }),
-    it('cabinet', 6, { x: 4990, y: 2000, rot: 90 }),
-    it('tv', 0, { x: 5070, y: 2000, rot: 90, elev: 450 }),
-    it('cabinet', 0, { x: 900, y: 150, rot: 0 }),
-    it('desk', 0, { x: 2600, y: 350, rot: 0 }),
-    it('chair', 1, { x: 2600, y: 860, rot: 180 }),
-    it('plant', 0, { x: 4750, y: 450, rot: 0 }),
-    it('floorlamp', 0, { x: 240, y: 600, rot: 0 }),
-  ].map((i) => (DEFS[i.type].mount === 'opening' ? syncOpening(i, room) : i));
+    it('rug', 3, { x: 1800, y: 2000, rot: 90 }),
+    it('sofa', 4, { x: 490, y: 2000, rot: 270 }),
+    it('wallshelf', 0, { x: 115, y: 2000, rot: 270, elev: 860 }),
+    it('table', 2, { x: 1720, y: 2000, rot: 90 }),
+    it('pendant', 0, { x: 1720, y: 2000, rot: 0 }),
+    it('cabinet', 1, { x: 5020, y: 2000, rot: 90 }),
+    it('cabinet', 6, { x: 900, y: 240, rot: 0 }),
+    it('cabinet', 7, { x: 900, y: 240, rot: 0, elev: 820 }),
+    it('cart', 0, { x: 1480, y: 190, rot: 0 }),
+    it('desk', 0, { x: 2650, y: 350, rot: 0 }),
+    it('chair', 1, { x: 2650, y: 860, rot: 180 }),
+    it('plant', 0, { x: 4250, y: 400, rot: 0 }),
+    it('floorlamp', 0, { x: 260, y: 520, rot: 0 }),
+  ].map((i) => (DEFS[i.type].mount === 'opening' ? syncOpening(i, room) : { ...i, elev: elevFor(i, room) }));
   return { version: 1, name: 'Living room', room, items };
 }
 
@@ -62,6 +66,12 @@ function loadJSON<T>(key: string): T | null {
   }
 }
 
+/** Upgrade params saved by older versions. */
+function migrateParams(type: string, p: Record<string, any>, raw: Record<string, any>) {
+  if (type === 'cabinet' && raw.placement === undefined && raw.wallMounted) p.placement = 'wall';
+  return p;
+}
+
 export function sanitizeDoc(d: any): Doc | null {
   if (!d || !Array.isArray(d?.room?.points) || d.room.points.length < 3 || !Array.isArray(d.items)) return null;
   const room: Room = {
@@ -70,13 +80,15 @@ export function sanitizeDoc(d: any): Doc | null {
     wallThickness: +d.room.wallThickness || 150,
     floorColor: d.room.floorColor || '#c9a882',
     wallColor: d.room.wallColor || '#f2efe9',
+    floorType: ['planks', 'parquet', 'tiles', 'concrete', 'carpet'].includes(d.room.floorType) ? d.room.floorType : 'planks',
+    skirting: d.room.skirting === undefined ? 80 : Math.max(0, +d.room.skirting || 0),
   };
   const items: Item[] = d.items
     .filter((i: any) => i && DEFS[i.type])
     .map((i: any) => ({
       id: String(i.id || uid()), type: i.type, name: String(i.name || DEFS[i.type].label),
       x: +i.x || 0, y: +i.y || 0, rot: +i.rot || 0, elev: +i.elev || 0,
-      params: { ...DEFS[i.type].defaults, ...(i.params || {}) },
+      params: migrateParams(i.type, { ...DEFS[i.type].defaults, ...(i.params || {}) }, i.params || {}),
       ...(i.wall !== undefined ? { wall: +i.wall, offset: +i.offset || 0 } : {}),
     }));
   return { version: 1, name: String(d.name || 'Room'), room, items };
@@ -144,6 +156,8 @@ interface UiPrefs {
   wallSnap: boolean;
   showDims: boolean;
   wallDisplay: WallDisplay;
+  quality: Quality;
+  outlines: boolean;
 }
 
 export interface State extends UiPrefs {
@@ -182,6 +196,10 @@ export interface State extends UiPrefs {
   rotateBy: (id: string, delta: number) => void;
   /** Rotation while dragging a handle: applied only if the result is valid. */
   rotateLive: (id: string, deg: number) => void;
+  /** Grow the item's width to the free space on both sides. */
+  fillWidth: (id: string) => void;
+  /** Make a cabinet reach the ceiling. */
+  fitCeiling: (id: string) => void;
   deleteItem: (id: string) => void;
   duplicateItem: (id: string) => void;
   newProject: () => void;
@@ -211,6 +229,8 @@ export const useStore = create<State>()((set, get) => {
     wallSnap: prefs.wallSnap ?? true,
     showDims: prefs.showDims ?? true,
     wallDisplay: prefs.wallDisplay ?? 'cutaway',
+    quality: prefs.quality ?? 'high',
+    outlines: prefs.outlines ?? false,
     planTool: 'select',
     dragging: false,
     cameraCmd: { preset: 'iso', n: 0 },
@@ -247,7 +267,8 @@ export const useStore = create<State>()((set, get) => {
     setRoom: (patch, history = true) => {
       const { doc } = get();
       const room = { ...doc.room, ...patch };
-      const items = patch.points ? carryAttached(doc.items, doc.room, room) : doc.items;
+      let items = patch.points ? carryAttached(doc.items, doc.room, room) : doc.items;
+      if (patch.wallHeight !== undefined) items = items.map((it) => (mountOf(it) === 'ceiling' ? { ...it, elev: elevFor(it, room) } : it));
       get().commitDoc({ ...doc, room, items: reprojectOpenings(items, doc.room, room) }, history);
     },
 
@@ -256,6 +277,7 @@ export const useStore = create<State>()((set, get) => {
     addItem: (type, presetIdx = 0, near) => {
       const { doc } = get();
       let item = makeItem(type, presetIdx);
+      item.elev = elevFor(item, doc.room);
       const same = doc.items.filter((i) => i.name === item.name || i.name.startsWith(item.name + ' ')).length;
       if (same) item.name = `${item.name} ${same + 1}`;
       const ctx = makeCtx(doc, [item.id]);
@@ -289,6 +311,7 @@ export const useStore = create<State>()((set, get) => {
       const m0 = mountOf(before), m1 = mountOf(after);
       if (m0 !== m1) after.elev = defaultElev(after.type, after.params);
       if (m1 === 'surface') after.elev = supportHeight(makeCtx(doc, [id]), after);
+      if (m1 === 'ceiling') after.elev = elevFor(after, doc.room);
       after = anchorResize(doc, before, after);
       replaceItem(id, () => after);
     },
@@ -365,6 +388,33 @@ export const useStore = create<State>()((set, get) => {
       if (cand.rot !== cur.rot && (isValid(ctx, cand) || !isValid(ctx, cur))) replaceItem(id, () => cand, false);
     },
 
+    fillWidth: (id) => {
+      const { doc } = get();
+      const it = findItem(id);
+      if (!it || mountOf(it) === 'opening') return;
+      const p = fullParams(it);
+      if (typeof p.width !== 'number') return;
+      const { left, right } = freeSpan(doc, it);
+      const L = isFinite(left) ? Math.max(0, left) : 0, R = isFinite(right) ? Math.max(0, right) : 0;
+      if (!isFinite(left) && !isFinite(right)) return get().notify('Nothing on either side to stretch to.');
+      if (L + R < 1) return get().notify('Already fills the free width.');
+      const shift = rotPt(vec((R - L) / 2, 0), it.rot);
+      const width = Math.round((p.width + L + R) * 10) / 10;
+      const max = DEFS[it.type].params.find((d) => d.key === 'width')?.max ?? Infinity;
+      if (width > max) return get().notify(`That would be ${Math.round(width)} mm, more than the ${max} mm this item allows.`);
+      replaceItem(id, () => ({ ...it, x: Math.round((it.x + shift.x) * 10) / 10, y: Math.round((it.y + shift.y) * 10) / 10, params: { ...it.params, width } }));
+    },
+
+    fitCeiling: (id) => {
+      const { doc } = get();
+      const it = findItem(id);
+      if (!it) return;
+      const p = fullParams(it);
+      const H = doc.room.wallHeight;
+      if (mountOf(it) === 'wall') replaceItem(id, () => ({ ...it, elev: Math.max(0, H - getBuild(it, doc.room).size[1]) }));
+      else if (typeof p.height === 'number') replaceItem(id, () => ({ ...it, params: { ...it.params, height: Math.round(H - it.elev) } }));
+    },
+
     deleteItem: (id) => {
       mutateItems((items) => items.filter((i) => i.id !== id));
       if (get().selectedId === id) set({ selectedId: null });
@@ -425,9 +475,10 @@ useStore.subscribe((s, prev) => {
       useStore.getState().notify('Plan image is too large to remember between sessions.');
     }
   }
-  if (s.view !== prev.view || s.grid !== prev.grid || s.wallSnap !== prev.wallSnap || s.showDims !== prev.showDims || s.wallDisplay !== prev.wallDisplay) {
+  const keys: (keyof UiPrefs)[] = ['view', 'grid', 'wallSnap', 'showDims', 'wallDisplay', 'quality', 'outlines'];
+  if (keys.some((k) => s[k] !== prev[k])) {
     try {
-      localStorage.setItem(UI_KEY, JSON.stringify({ view: s.view, grid: s.grid, wallSnap: s.wallSnap, showDims: s.showDims, wallDisplay: s.wallDisplay }));
+      localStorage.setItem(UI_KEY, JSON.stringify(Object.fromEntries(keys.map((k) => [k, s[k]]))));
     } catch {
       /* ignore */
     }
